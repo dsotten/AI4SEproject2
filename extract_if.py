@@ -10,7 +10,7 @@ def tokenize_function(code):
     Tokenizes the input Python function using LLaMA tokenizer.
     Returns the list of tokenized IDs.
     """
-    tokens = tokenizer(code, return_tensors="pt")
+    tokens = tokenizer(code, return_tensors="pt", truncation=True)
     return tokens['input_ids'].tolist()[0]
     
 
@@ -114,9 +114,9 @@ def extract_and_tokenize_functions_from_df(df, column_name):
     return output_df
 
 # Example usage
-csv_file = 'full.csv'  # Path to your CSV file
-column_name = 'code'  # The name of the column containing Python code
-output_file = 'tokenized_functions.csv'  # The name of the output CSV file
+# csv_file = 'full.csv'  # Path to your CSV file
+# column_name = 'code'  # The name of the column containing Python code
+# output_file = 'tokenized_functions.csv'  # The name of the output CSV file
 
-extract_and_tokenize_functions_from_csv(csv_file, column_name, output_file)
+# extract_and_tokenize_functions_from_csv(csv_file, column_name, output_file)
 
