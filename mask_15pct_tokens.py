@@ -1,7 +1,7 @@
 import pandas as pd
 import random as random
 
-def main(csv_path, column_name):
+def main(csv_path):
     df = pd.read_csv(csv_path)
 
     tokenized_functions = []
@@ -11,10 +11,9 @@ def main(csv_path, column_name):
         tokenized = row['tokenized_function']
         for function in tokenized:
             tokenized_functions.append(function)
-            tokens = tokenized.split(' ')
 
             masked = []
-            for token in tokens:
+            for token in tokenized:
                 if random.randint(1, 100) <= 15:
                     masked.append('<masked>')
                 else:
