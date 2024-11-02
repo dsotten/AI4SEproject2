@@ -81,6 +81,38 @@ def extract_and_tokenize_functions_from_csv(csv_file, column_name, output_file):
     # Save the DataFrame to a CSV file
     output_df.to_csv(output_file, index=False)
 
+def extract_and_tokenize_functions_from_df(df, column_name):
+    """
+    Reads a dataframe, extracts functions from the specified column
+    that contain 'if' statements, tokenizes them using LLaMA, and returns
+    the resulting dataframe.
+    """
+    # Lists to store the original and tokenized functions
+    original_functions = []
+    tokenized_functions = []
+    
+    for index, row in df.iterrows():
+        code = row[column_name]
+        functions_with_if = extract_functions_with_if_statements(code)
+        
+        for func in functions_with_if:
+            original_functions.append(func)
+            try:
+                tokenized_code = tokenize_function(func)
+                tokenized_functions.append(tokenized_code)
+            except Exception as e:
+                print(f"Error tokenizing function: {func}\nError: {e}")
+                continue
+    
+    # Create a DataFrame to store the results
+    output_df = pd.DataFrame({
+        'original_function': original_functions,
+        'tokenized_function': tokenized_functions
+    })
+    
+    # Return the DataFrame
+    return output_df
+
 # Example usage
 csv_file = 'full.csv'  # Path to your CSV file
 column_name = 'code'  # The name of the column containing Python code

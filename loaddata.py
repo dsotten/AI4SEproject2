@@ -37,3 +37,5 @@ def jsonl_list_to_dataframe(file_list, columns=columns_long_list):
 df = jsonl_list_to_dataframe(python_files)
 
 df.head(3)
+data = df['code']
+data.to_csv('full.csv', index=False)
