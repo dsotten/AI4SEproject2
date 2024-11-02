@@ -1,33 +1,50 @@
-# import loaddata
+import loaddata
 import extract_if
 import mask_15pct_tokens
 import mask_if_conditions
 import pandas as pd
 
+import os.path
+from pathlib import Path
+
 from transformers import T5ForConditionalGeneration
 from transformers import LlamaTokenizer
 from transformers import Trainer
 from datasets import Dataset 
-import torch.cuda
-import torch
+# import torch.cuda
+# import torch
+
+print('Start')
 
 model_base = T5ForConditionalGeneration.from_pretrained('Salesforce/codet5-small')
 tokenizer = LlamaTokenizer.from_pretrained("huggyllama/llama-7b")
+skipDatasetCreation = True
 
 #Tokenize full dataset
+dataset_filepath = 'python/final/jsonl/test/python_test_1.jsonl'
 csv_file = 'full.csv'  # Path to your CSV file
 column_name = 'code'  # The name of the column containing Python code
-# output_file = 'tokenized_functions.csv'  # The name of the output CSV file
-tokenized_df = extract_if.extract_and_tokenize_functions_from_df(pd.read_csv(csv_file), column_name)
+tokenized_csv = 'tokenized_functions.csv'  # The name of the output CSV file
+# tokenized_df = extract_if.extract_and_tokenize_functions_from_df(pd.read_csv(csv_file), column_name)
 
-print('')
+if Path(csv_file).is_file():
+    pass
+else:
+    loaddata.main(dataset_filepath)
+
+if Path(tokenized_csv).is_file():
+    print('Tokenized dataset found, skipping tokenization process')
+    pass
+else:
+    extract_if.extract_and_tokenize_functions_from_csv(csv_file, column_name, tokenized_csv)
+# tokenized_df = pd.read_csv(tokenized_csv)
+
 print('Full dataset tokenized')
-print('')
 
 #Splits a CSV file into two datasets based on percentages.
-def split_csv_by_percentage(df, output_path1, output_path2, pct1=0.7, pct2=0.3):
+def split_csv_by_percentage(csv_file, output_path1, output_path2, pct1=0.7, pct2=0.3):
     
-    # df = pd.read_csv(csv_file)
+    df = pd.read_csv(csv_file)
     total_rows = len(df)
 
     size1 = int(total_rows * pct1)
@@ -36,45 +53,59 @@ def split_csv_by_percentage(df, output_path1, output_path2, pct1=0.7, pct2=0.3):
     df1 = df.iloc[:size1]
     df2 = df.iloc[size1:size1 + size2]
 
-    return [df1, df2]
-    # df1.to_csv(f"{output_path1}.csv", index=False)
-    # df2.to_csv(f"{output_path2}.csv", index=False)
+    # return [df1, df2]
+    df1.to_csv(output_path1, index=False)
+    df2.to_csv(output_path2, index=False)
 
-csv_file1 = 'pretrain'
-csv_file2 = 'finetune'
-csv_file3 = 'evaluate'
+pretrain_csv = 'pretrain.csv'
+ft_tosplit_csv = 'ft_tosplit.csv'
+finetune_csv = 'finetune.csv'
+evaluate_csv = 'evaluate.csv'
 
 #Set up pretraining dataset
-dataframes = split_csv_by_percentage(tokenized_df, csv_file1, csv_file2)
-pretrain_set = Dataset.from_pandas(mask_15pct_tokens.main_df(dataframes[1],'code'))
-finetune_set = mask_if_conditions.main_df(dataframes[2])
+if Path(pretrain_csv).is_file():
+    print('Pretrain dataset found, skipping dataset split')
+    pass
+else:
+    # dataframes = split_csv_by_percentage(tokenized_df, csv_file1, csv_file2)
+    split_csv_by_percentage(tokenized_csv,pretrain_csv,ft_tosplit_csv)
+# pretrain_set = Dataset.from_pandas(mask_15pct_tokens.main_df(pd.read_csv(pretrain_csv)))
 
-print('')
+if Path('15pct_masked.csv').is_file():
+    print('15 percent of tokens have already been masked')
+    pass
+else:
+    mask_15pct_tokens.main_csv(pretrain_csv)
+pretrain_set = Dataset.from_pandas(pd.read_csv('15pct_masked.csv'))
+
 print('Pretraining dataset created')
-print('')
 
-dataframes = split_csv_by_percentage(finetune_set, csv_file2, csv_file3, 0.85, 0.15)
-finetune_set = Dataset.from_pandas(dataframes[1])
-eval_set = Dataset.from_pandas(dataframes[2])
+if Path('conditions_masked.csv').is_file():
+    # dataframes = split_csv_by_percentage(finetune_csv, finetune_csv, evaluate_csv, 0.85, 0.15)
+    print('If conditions have already been masked')
+    pass
+else:
+    mask_if_conditions.main_csv(ft_tosplit_csv)
 
-print('')
+if Path(finetune_csv).is_file() and Path(evaluate_csv).is_file():
+    pass
+else:
+    split_csv_by_percentage('conditions_masked.csv', finetune_csv, evaluate_csv, 0.85, 0.15)
+finetune_set = Dataset.from_pandas(finetune_csv)
+eval_set = Dataset.from_pandas(evaluate_csv)
+
 print('Finetuning and Evaluation datasets created')
-print('')
 
 model_trainer1 = Trainer(model_base, train_dataset=pretrain_set, eval_dataset=eval_set)
 model1 = model_trainer1.train
 
-print('')
 print('Pretraining step complete')
-print('')
 
 model_trainer2 = Trainer(model1, train_dataset=finetune_set, eval_dataset=eval_set)
 eval1 = model_trainer2.evaluate
 model2 = model_trainer2.train
 
-print('')
 print('Finetuning step complete')
-print('')
 
 model_final_eval = Trainer(model2, train_dataset=finetune_set, eval_dataset=eval_set)
 eval2 = model_final_eval.evaluate
