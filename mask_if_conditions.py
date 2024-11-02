@@ -1,6 +1,6 @@
 import pandas as pd
 
-def main(csv_path, column_name):
+def main(csv_path):
     df = pd.read_csv(csv_path)
 
     tokenized_functions = []
@@ -10,11 +10,10 @@ def main(csv_path, column_name):
         tokenized = row['tokenized_function']
         for function in tokenized:
             tokenized_functions.append(function)
-            tokens = tokenized.split(' ')
 
             masked = []
             if_found = False
-            for token in tokens:
+            for token in tokenized:
                 if token == 'if':
                     masked.append(token)
                     masked.append('<condition>')
