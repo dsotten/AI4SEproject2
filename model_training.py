@@ -63,7 +63,7 @@ finetune_csv = 'finetune.csv'
 evaluate_csv = 'evaluate.csv'
 
 #Set up pretraining dataset
-if Path(pretrain_csv).is_file():
+if Path(pretrain_csv).is_file() and Path(ft_tosplit_csv).is_file():
     print('Pretrain dataset found, skipping dataset split')
     pass
 else:
@@ -91,24 +91,24 @@ if Path(finetune_csv).is_file() and Path(evaluate_csv).is_file():
     pass
 else:
     split_csv_by_percentage('conditions_masked.csv', finetune_csv, evaluate_csv, 0.85, 0.15)
-finetune_set = Dataset.from_pandas(finetune_csv)
-eval_set = Dataset.from_pandas(evaluate_csv)
+finetune_set = Dataset.from_pandas(pd.read_csv(finetune_csv))
+eval_set = Dataset.from_pandas(pd.read_csv(evaluate_csv))
 
 print('Finetuning and Evaluation datasets created')
 
 model_trainer1 = Trainer(model_base, train_dataset=pretrain_set, eval_dataset=eval_set)
-model1 = model_trainer1.train
+model1 = model_trainer1.train()
 
 print('Pretraining step complete')
 
 model_trainer2 = Trainer(model1, train_dataset=finetune_set, eval_dataset=eval_set)
-eval1 = model_trainer2.evaluate
-model2 = model_trainer2.train
+eval1 = model_trainer2.evaluate()
+model2 = model_trainer2.train()
 
 print('Finetuning step complete')
 
 model_final_eval = Trainer(model2, train_dataset=finetune_set, eval_dataset=eval_set)
-eval2 = model_final_eval.evaluate
+eval2 = model_final_eval.evaluate()
 
 # text = #kate's_dataset_creator.random_sample()
 # input_ids = tokenizer(text, return_tensors="pt").input_ids
