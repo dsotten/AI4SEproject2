@@ -1,3 +1,7 @@
+import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
+
 import loaddata
 import extract_and_mask_if2
 import mask_15pct_tokens
@@ -7,6 +11,7 @@ import ast
 import torch
 
 from pathlib import Path
+import pickle
 
 from transformers import TrainingArguments
 from transformers import DataCollatorForSeq2Seq
@@ -38,34 +43,13 @@ def split_csv_by_percentage(csv_file, output_path1, output_path2=None, pct1=0.7,
     if output_path2:
         df2.to_csv(output_path2, index=False)
 
-# class CustomDataset(Dataset):
-#     def __init__(self, data):
-#         self._data = data
-
-#     def __len__(self):
-#         return len(self._data)
-
-#     def __getitem__(self, idx):
-#         # Check if idx is a list (for batching)
-#         if isinstance(idx, list):
-#             # If a batch of indices is provided, return the items for those indices
-#             return [self._data[i] for i in idx]
-#         else:
-#             # Return a single item
-#             item = self._data[idx]
-#             return {
-#                 'input_ids': torch.tensor(item['input_ids'], dtype=torch.long),
-#                 'labels': torch.tensor(item['labels'], dtype=torch.long)
-#             }
-
-# print('Start')
-
 # tokenizer = RobertaTokenizer.from_pretrained('Salesforce/codet5-small')
 model_base = T5ForConditionalGeneration.from_pretrained('Salesforce/codet5-small')
 tokenizer = LlamaTokenizer.from_pretrained("huggyllama/llama-7b")
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 # data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model_base, padding="longest")
+# os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:512'
 
 #Tokenize full dataset
 dataset_filepath = 'python/final/jsonl/test/python_test_1.jsonl'
@@ -75,7 +59,6 @@ pretrain_csv = 'pretrain.csv'
 ft_tosplit_csv = 'ft_tosplit.csv'
 finetune_csv = 'finetune.csv'
 evaluate_csv = 'evaluate.csv'
-
 
 if Path(csv_file).is_file():
     pass
@@ -109,16 +92,46 @@ df_read['input_ids'] = df_read['input_ids'].apply(ast.literal_eval)
 df_read['labels'] = df_read['labels'].apply(ast.literal_eval)
 eval_set = Dataset.from_pandas(df_read)
 
+# training_args = TrainingArguments(
+#     output_dir='./results',
+#     num_train_epochs=3,
+#     per_device_train_batch_size=8,
+#     logging_dir='./logs',
+#     logging_steps=10,
+# ) #Modify to our args
+
+# Enable memory efficient attention if using a transformer model
+model_base.config.use_cache = False  # Disable caching during training
+
+# Define training arguments with memory optimizations
 training_args = TrainingArguments(
     output_dir='./results',
     num_train_epochs=3,
-    per_device_train_batch_size=8,
+    # Reduce batch size
+    per_device_train_batch_size=1,  # Reduced from 8
+    per_device_eval_batch_size=1,   # Reduced from 8
+    # Enable gradient accumulation
+    gradient_accumulation_steps=4,
+    # Memory optimizations
+    fp16=True,                      # Use mixed precision training
+    gradient_checkpointing=True,    # Trade compute for memory
+    # Optional: enable memory efficient attention
+    optim='adamw_torch',            # Use memory efficient optimizer
+    # Logging
     logging_dir='./logs',
     logging_steps=10,
-) #Modify to our args
+    # Memory management
+    max_grad_norm=1.0,              # Clip gradients
+    dataloader_pin_memory=False,    # Reduce memory usage
+    dataloader_num_workers=0,       # Disable multi-processing to reduce memory overhead
+)
+
+# Clear GPU cache before training
+torch.cuda.empty_cache()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print('Training device:'+str(device))
+print('Training device: '+str(device))
+print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
 
 model_trainer1 = Trainer(
     model=model_base,
@@ -127,14 +140,22 @@ model_trainer1 = Trainer(
     data_collator=data_collator
 )
 model1 = model_trainer1.train()
+file_path = './trained'
+with open(file_path, 'wb') as f:
+        pickle.dump(model1, f)
 
 print('Pretraining step complete')
 
-model_trainer2 = Trainer(model1, train_dataset=finetune_set, eval_dataset=eval_set)
+model_trainer2 = Trainer(model1, args=training_args, train_dataset=finetune_set, eval_dataset=eval_set, data_collator=data_collator)
 eval1 = model_trainer2.evaluate()
+print(eval1)
 model2 = model_trainer2.train()
+file_path = './trained'
+with open(file_path, 'wb') as f:
+        pickle.dump(model2, f)
 
 print('Finetuning step complete')
 
-model_final_eval = Trainer(model2, train_dataset=finetune_set, eval_dataset=eval_set)
+model_final_eval = Trainer(model2, args=training_args, train_dataset=finetune_set, eval_dataset=eval_set, data_collator=data_collator)
 eval2 = model_final_eval.evaluate()
+print(eval2)
