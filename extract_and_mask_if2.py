@@ -93,9 +93,10 @@ def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_outp
             # Pre-training: Random token masking
             pretrain_masked_func, original_tokens = random_token_masking(func)  # Use the masking function
             if pretrain_masked_func is not None:
+                input_ids = tokenizer.convert_tokens_to_ids(pretrain_masked_func)
                 labels = tokenizer.convert_tokens_to_ids(original_tokens)  # Use original tokens for labels
                 pretrain_data.append({
-                    'input_ids': pretrain_masked_func,
+                    'input_ids': input_ids,
                     'labels': labels
                 })
 
@@ -103,7 +104,15 @@ def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_outp
             finetune_masked_func, original_conditions = mask_if_statements(func)
             tokenized_finetune = tokenize_function(finetune_masked_func)
             if tokenized_finetune is not None:
-                labels_finetune = labels_finetune = [tokenizer.convert_tokens_to_ids(condition) for condition in original_conditions]
+                labels_finetune = [-100] * len(tokenized_finetune)  # Default to -100 for masked tokens
+                for condition in original_conditions:
+                    condition_tokens = tokenizer.tokenize(condition)
+                    condition_ids = tokenizer.convert_tokens_to_ids(condition_tokens)
+        
+                    # Ensure replace the position of <MASK> in labels_finetune
+                    for i in range(len(tokenized_finetune)):
+                        if tokenized_finetune[i] == tokenizer.convert_tokens_to_ids("<MASK>"):  # Check for the mask token
+                            labels_finetune[i] = condition_ids[0]  # Assign the first condition's token ID
                 finetune_data.append({
                     'input_ids': tokenized_finetune,
                     'labels': labels_finetune
