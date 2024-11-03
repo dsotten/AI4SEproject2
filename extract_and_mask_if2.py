@@ -75,10 +75,26 @@ def random_token_masking(code, mask_token="<MASK>", mask_ratio=0.15):
     # Randomly select indices to mask
     indices_to_mask = random.sample(range(total_tokens), num_to_mask)
 
-    # Create masked tokens
-    masked_tokens = [tokenized[i] if i not in indices_to_mask else mask_token for i in range(total_tokens)]
+    # Create masked tokens and labels
+    masked_tokens = []
+    labels = []
 
-    return masked_tokens, [tokenized[i] for i in range(total_tokens) if i not in indices_to_mask]
+    for i in range(total_tokens):
+        if i in indices_to_mask:
+            masked_tokens.append(mask_token)  # Replace with mask token
+            labels.append(tokenized[i])  # Store the original token for labels
+        else:
+            masked_tokens.append(tokenized[i])  # Keep original token
+            labels.append("")  # Placeholder for unmasked tokens
+
+    # Convert masked tokens to input IDs and labels to token IDs
+    masked_input_ids = tokenizer.convert_tokens_to_ids(masked_tokens)
+    label_ids = tokenizer.convert_tokens_to_ids(labels)
+
+    # Remove empty labels (for unmasked tokens)
+    label_ids = [id for id in label_ids if id != tokenizer.pad_token_id]
+
+    return masked_input_ids, label_ids  # Ensure both lengths match
     
 def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_output, finetune_output):
     df = pd.read_csv(csv_file)
@@ -93,11 +109,11 @@ def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_outp
             # Pre-training: Random token masking
             pretrain_masked_func, original_tokens = random_token_masking(func)  # Use the masking function
             if pretrain_masked_func is not None:
-                input_ids = tokenizer.convert_tokens_to_ids(pretrain_masked_func)
-                labels = tokenizer.convert_tokens_to_ids(original_tokens)  # Use original tokens for labels
+#                input_ids = tokenizer.convert_tokens_to_ids(pretrain_masked_func)
+#                labels = tokenizer.convert_tokens_to_ids(original_tokens)  # Use original tokens for labels
                 pretrain_data.append({
-                    'input_ids': input_ids,
-                    'labels': labels
+                    'input_ids': pretrain_masked_func,
+                    'labels': original_tokens
                 })
 
             # Fine-tuning: Masking only 'if' conditions
