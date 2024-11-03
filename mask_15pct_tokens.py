@@ -7,22 +7,28 @@ def main_csv(csv_path):
 
     tokenized_functions = []
     masked_functions = []
+    labels = []
 
     for index, row in df.iterrows():
         tokenized_function = ast.literal_eval(row['tokenized_function'])
         tokenized_functions.append(tokenized_function)
 
         masked = []
+        labels_tmp = []
         for token in tokenized_function:
             if random.randint(1, 100) <= 15:
                 masked.append('<masked>')
+                labels_tmp.append(token)
             else:
                 masked.append(token)
+                labels_tmp.append('<masked>')
         masked_functions.append(masked)
+        labels.append(labels_tmp)
 
     output_df = pd.DataFrame({
-        'tokenized_function': tokenized_functions,
-        'masked_function': masked_functions
+        # 'tokenized_function': tokenized_functions,
+        'input_ids': masked_functions,
+        'labels': labels
     })
 
     output_df.to_csv('15pct_masked.csv', index=False)
