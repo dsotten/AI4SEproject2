@@ -10,11 +10,11 @@ from sklearn.model_selection import train_test_split
 from transformers import RobertaTokenizerFast
 
 def main(file_path):
-    with open(file_path, 'r') as f:
-        sample_file = f.readlines()
-    sample_file[0]
+    # with open(file_path, 'r') as f:
+    #     sample_file = f.readlines()
+    # sample_file[0]
 
-    pprint(json.loads(sample_file[0]))
+    # pprint(json.loads(sample_file[0]))
 
     python_files = sorted(Path('python').glob('**/*.gz'))
 
