@@ -122,11 +122,9 @@ model_trainer1 = Trainer(
     data_collator=data_collator
 )
 model1 = model_trainer1.train()
-file_path = './trained'
-with open(file_path, 'wb') as f:
-    pickle.dump(model1, f)
-
 print('Pretraining step complete')
+model_trainer1.save_model('./pretrained_model')
+print('Pretrained model saved.')
 
 model1 = model_trainer1.model
 model1.to(device)
