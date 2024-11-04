@@ -1,14 +1,14 @@
 import os
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
-import loaddata
-import extract_and_mask_if_2
+#import loaddata
+import extract_and_mask_if2
 #import mask_15pct_tokens
 #import mask_if_conditions
 import pandas as pd
 import ast
 import torch
+
 
 from pathlib import Path
 import pickle
@@ -25,7 +25,7 @@ import torch.cuda
 import torch
 from torch.utils.data import DataLoader
 
-model_base = T5ForConditionalGeneration.from_pretrained('Salesforce/codet5-small')
+model_base = T5ForConditionalGeneration.from_pretrained('Salesforce/codet5-small', device_map='auto')
 tokenizer = LlamaTokenizer.from_pretrained("huggyllama/llama-7b")
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model_base, padding="longest")
@@ -55,7 +55,7 @@ if Path(pretrain_csv).is_file() and Path(finetune_train_csv).is_file():
     print('Datasets found, skipping tokenization and masking')
     pass
 else:
-    extract_and_mask_if_2.extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_csv, finetune_train_csv, finetune_eval_csv, finetune_test_csv)
+    extract_and_mask_if2.extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_csv, finetune_train_csv, finetune_eval_csv, finetune_test_csv)
 
 print('Full dataset masked and tokenized')
 
@@ -74,16 +74,6 @@ df_read['input_ids'] = df_read['input_ids'].apply(ast.literal_eval)
 df_read['labels'] = df_read['labels'].apply(ast.literal_eval)
 eval_set = Dataset.from_pandas(df_read)
 
-# training_args = TrainingArguments(
-#     output_dir='./results',
-#     num_train_epochs=3,
-#     per_device_train_batch_size=8,
-#     logging_dir='./logs',
-#     logging_steps=10,
-# ) #Modify to our args
-
-# Enable memory efficient attention if using a transformer model
-model_base.config.use_cache = False  # Disable caching during training
 
 # Define training arguments with memory optimizations
 training_args = TrainingArguments(
@@ -105,16 +95,25 @@ training_args = TrainingArguments(
     # Memory management
     max_grad_norm=1.0,              # Clip gradients
     dataloader_pin_memory=False,    # Reduce memory usage
-    dataloader_num_workers=0,       # Disable multi-processing to reduce memory overhead
+    dataloader_num_workers=0       # Disable multi-processing to reduce memory overhead
 )
 
-# Clear GPU cache before training
-torch.cuda.empty_cache()
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-# print('Training device: '+str(device))
-# print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+torch.cuda.empty_cache()
+#torch.cuda.set_device(0)
+
+def convert_to_tensors(batch):
+    batch['input_ids'] = torch.tensor(batch['input_ids']).to(device)
+    batch['labels'] = torch.tensor(batch['labels']).to(device)
+    return batch
+
+
+pretrain_set = pretrain_set.map(convert_to_tensors)
+finetune_set = finetune_set.map(convert_to_tensors)
+eval_set = eval_set.map(convert_to_tensors)
+model_base.to(device)
 
 model_trainer1 = Trainer(
     model=model_base,
@@ -125,9 +124,12 @@ model_trainer1 = Trainer(
 model1 = model_trainer1.train()
 file_path = './trained'
 with open(file_path, 'wb') as f:
-        pickle.dump(model1, f)
+    pickle.dump(model1, f)
 
 print('Pretraining step complete')
+
+model1 = model_trainer1.model
+model1.to(device)
 
 model_trainer2 = Trainer(model1, args=training_args, train_dataset=finetune_set, eval_dataset=eval_set, data_collator=data_collator)
 # eval1 = model_trainer2.evaluate()
