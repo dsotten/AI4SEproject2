@@ -160,11 +160,11 @@ def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_outp
     finetune_test_df.to_csv(finetune_test_output, index=False)
 
 # Example usage
-csv_file = 'full.csv'
-column_name = 'code'
-pretrain_output = 'pretrain_dataset.csv'
-finetune_train_output = 'finetune_train_dataset.csv'
-finetune_eval_output = 'finetune_eval_dataset.csv'
-finetune_test_output = 'finetune_test_dataset.csv'
+# csv_file = 'full.csv'
+# column_name = 'code'
+# pretrain_output = 'pretrain_dataset.csv'
+# finetune_train_output = 'finetune_train_dataset.csv'
+# finetune_eval_output = 'finetune_eval_dataset.csv'
+# finetune_test_output = 'finetune_test_dataset.csv'
 
-extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_output, finetune_train_output, finetune_eval_output, finetune_test_output)
+# extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_output, finetune_train_output, finetune_eval_output, finetune_test_output)
