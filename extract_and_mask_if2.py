@@ -89,12 +89,14 @@ def random_token_masking(code, mask_token="<MASK>", mask_ratio=0.15):
 
     return masked_tokens, labels
     
-def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_output, finetune_output):
+def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_output, finetune_train_output, finetune_eval_output, finetune_test_output):
     df = pd.read_csv(csv_file)
+    pretrain = df[:150000]
+    finetune = df[150000:200000]
     pretrain_data = []
     finetune_data = []
 
-    for _, row in df.iterrows():
+    for _, row in pretrain.iterrows():
         code = row[column_name]
         functions_with_if = extract_functions_with_if_statements(code)
 
@@ -108,7 +110,12 @@ def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_outp
                     'input_ids': input_ids,
                     'labels': original_labels
                 })
+    
+    for _, row in finetune.iterrows():
+        code = row[column_name]
+        functions_with_if = extract_functions_with_if_statements(code)
 
+        for func in functions_with_if:
             # Fine-tuning: Masking only 'if' conditions
             finetune_masked_func, original_conditions = mask_if_statements(func)
             tokenized_finetune = tokenize_function(finetune_masked_func)
@@ -124,19 +131,40 @@ def extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_outp
                             labels_finetune[i] = condition_ids[0]  # Assign the first condition's token ID
                 finetune_data.append({
                     'input_ids': tokenized_finetune,
-                    'labels': labels_finetune
+                    'labels': labels_finetune,
+                    'original_method': func,
+                    'input_method': finetune_masked_func,
+                    'target_block': original_conditions
                 })
 
     pretrain_df = pd.DataFrame(pretrain_data)
     pretrain_df.to_csv(pretrain_output, index=False)
+    
+    random.shuffle(finetune_data)
+    total_finetune = len(finetune_data)
+    train_size = int(total_finetune * 0.8)
+    eval_size = int(total_finetune * 0.1)
 
-    finetune_df = pd.DataFrame(finetune_data)
-    finetune_df.to_csv(finetune_output, index=False)
+    finetune_train_data = finetune_data[:train_size]
+    finetune_eval_data = finetune_data[train_size:train_size + eval_size]
+    finetune_test_data = finetune_data[train_size + eval_size:]
+
+    finetune_train_df = pd.DataFrame(finetune_train_data)[['input_ids', 'labels']]
+    finetune_train_df.to_csv(finetune_train_output, index=False)
+
+    finetune_eval_df = pd.DataFrame(finetune_eval_data)[['input_ids', 'labels']]
+    finetune_eval_df.to_csv(finetune_eval_output, index=False)
+
+    # Create finetune test DataFrame with all columns and save
+    finetune_test_df = pd.DataFrame(finetune_test_data)
+    finetune_test_df.to_csv(finetune_test_output, index=False)
 
 # Example usage
 csv_file = 'full.csv'
 column_name = 'code'
 pretrain_output = 'pretrain_dataset.csv'
-finetune_output = 'finetune_dataset.csv' 
+finetune_train_output = 'finetune_train_dataset.csv'
+finetune_eval_output = 'finetune_eval_dataset.csv'
+finetune_test_output = 'finetune_test_dataset.csv'
 
-extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_output, finetune_output)
+extract_and_tokenize_functions_from_csv(csv_file, column_name, pretrain_output, finetune_train_output, finetune_eval_output, finetune_test_output)
