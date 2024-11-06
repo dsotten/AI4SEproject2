@@ -18,45 +18,52 @@ provided_test_df = pd.DataFrame(provided_test_csv)
 
 generated_testset_results = []
 provided_testset_results = []
-# pred_score = 0
-# pred_calc = 
+num_preds = 0
+correct_preds = 0
 
 for _, row in generated_test_df.iterrows():
     model_input = tokenizer.encode(row['input_method'])
     expected_if = row['target_block']
     pred_correct = False
+    num_preds += 1
 
     #How do we actually call the model?
     predicted_if = model.generate(model_input)
 
     if (expected_if == predicted_if):
         pred_correct = True
+        correct_preds += 1
 
     generated_testset_results.append({
         'model_input': model_input,
         'pred_correct': pred_correct,
         'expected_if': expected_if,
         'predicted_if': predicted_if,
-        'pred_score':
+        'pred_score': correct_preds/num_preds
     })
 pd.DataFrame(generated_testset_results).to_csv('generated-testset', index=False)
+
+num_preds = 0
+correct_preds = 0
 
 for _, row in provided_test_df.iterrows():
     model_input = tokenizer.encode(row['input_method'])
     expected_if = row['target_block']
     pred_correct = False
+    num_preds += 1
 
     #How do we actually call the model?
     predicted_if = model.generate(model_input)
 
     if (expected_if == predicted_if):
         pred_correct = True
+        correct_preds += 1
 
     provided_testset_results.append({
         'model_input': model_input,
         'pred_correct': pred_correct,
         'expected_if': expected_if,
         'predicted_if': predicted_if,
-        'pred_score': 
+        'pred_score': correct_preds/num_preds
     })
 pd.DataFrame(provided_testset_results).to_csv('provided-testset', index=False)
