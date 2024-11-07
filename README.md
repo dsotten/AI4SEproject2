@@ -8,4 +8,4 @@ Having a high-end graphics card and plenty of RAM is recommended for efficiency 
 **Testing Instructions**
 
 When training is complete, there should be 2 folders with separate versions of the model: 1 after the pre-training step, and 1 after finetuning. To test your model, run ```python model_testing.py```.
-To test on a new dataset, replace generated_test_csv or provided_test_csv with your desired file path.
+If your testing machine does not have a NVIDIA graphics card, replace all instances of ".cuda()" with ".cpu()" To test on a new dataset, replace generated_test_csv or provided_test_csv with your desired file path.
