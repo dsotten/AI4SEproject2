@@ -76,6 +76,8 @@ for _, row in generated_test_df.iterrows():
     pred_correct = False
     num_preds += 1
 
+    # generated_test_df2[_][row['input_ids']]
+
     #How do we actually call the model?
     predicted_if = model.generate(model_input.cuda())
     predicted_if = tokenizer.decode(predicted_if[0], skip_special_tokens=True)
@@ -85,7 +87,7 @@ for _, row in generated_test_df.iterrows():
         correct_preds += 1
 
     generated_testset_results.append({
-        'model_input': model_input,
+        'model_input': generated_test_df.loc[_, 'input_method'],
         'pred_correct': pred_correct,
         'expected_if': expected_if,
         'predicted_if': predicted_if,
